@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  frontend-service:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.multistage
+    image: frontend-ex
+    ports:
+      - "3000"
+    networks:
+      - my-network
+    labels:
+      - "traefik.http.routers.front.rule=Host(`localhost`)"
+
+  python-backend-service:
+    build:
+      context: ./python-backend
+    image: python-backend-ex
+    ports:
+      - "8000"
+    networks:
+      - my-network
+    labels:
+      - "traefik.http.routers.srv1.rule=(Host(`localhost`)&&PathPrefix(`/python`))"
+
+
+  reverse-proxy:
+    image: traefik:v2.2
+    # Enables the web UI and tells Traefik to listen to docker
+    command: --api.insecure=true --providers.docker
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    networks:
+      - my-network
+    depends_on:
+      - python-backend-service
+
+networks:
+  my-network:
+    driver: bridge
